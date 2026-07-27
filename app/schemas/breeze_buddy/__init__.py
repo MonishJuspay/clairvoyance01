@@ -60,7 +60,11 @@ from app.schemas.breeze_buddy.users import (
 )
 from app.schemas.breeze_buddy.whatsapp import (
     WHATSAPP_SYNC_TOKEN_ENCRYPTION_SCHEME,
+    EncryptedWhatsAppAccessToken,
     SyncMerchantWhatsAppConnection,
+    WhatsAppConnectionDisconnectRequest,
+    WhatsAppConnectionDisconnectResponse,
+    WhatsAppConnectionSyncResponse,
     WhatsAppCredentialSecret,
 )
 from app.schemas.breeze_buddy.connectors import (
@@ -131,7 +135,11 @@ __all__ = [
     "ConnectorStatus",
     "UpsertConnectorConnection",
     # WhatsApp
+    "EncryptedWhatsAppAccessToken",
     "SyncMerchantWhatsAppConnection",
+    "WhatsAppConnectionDisconnectRequest",
+    "WhatsAppConnectionDisconnectResponse",
+    "WhatsAppConnectionSyncResponse",
     "WhatsAppCredentialSecret",
     "WHATSAPP_SYNC_TOKEN_ENCRYPTION_SCHEME",
 ]

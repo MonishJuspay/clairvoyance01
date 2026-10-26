@@ -8,12 +8,26 @@ Scope resolution (resolve_merchant_ids, resolve_reseller_ids, etc.)
 has been moved to app.core.security.scope.
 """
 
-from typing import List
+from typing import List, Optional
 
 from fastapi import HTTPException, status
 
 from app.core.logger import logger
 from app.schemas import UserInfo, UserRole
+
+
+def merchant_scope_permitted(
+    current_user: UserInfo, merchant_id: Optional[str]
+) -> bool:
+    """Admin: yes. Set merchant_id: must be in the caller's merchants or "*".
+    Null merchant_id is reseller-scoped: reseller role only (PT-14/15)."""
+    if current_user.role == UserRole.ADMIN:
+        return True
+    if merchant_id:
+        return (
+            merchant_id in current_user.merchant_ids or "*" in current_user.merchant_ids
+        )
+    return current_user.role == UserRole.RESELLER
 
 
 def check_permission(current_user: UserInfo, required_permission: str) -> bool:

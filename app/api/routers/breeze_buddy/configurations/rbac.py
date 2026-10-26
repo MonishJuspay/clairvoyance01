@@ -8,6 +8,7 @@ from typing import List, Optional
 from fastapi import HTTPException, status
 
 from app.core.logger import logger
+from app.core.security.authorization import merchant_scope_permitted
 from app.schemas import UserInfo
 
 
@@ -66,19 +67,19 @@ def validate_config_access(
             detail=f"Access denied to reseller {reseller_id}",
         )
 
-    # Check merchant identifier access (only if merchant_id is provided)
-    if (
-        merchant_id
-        and merchant_id not in current_user.merchant_ids
-        and "*" not in current_user.merchant_ids
-    ):
+    # Null merchant_id is reseller-scoped: reseller role or admin only (PT-14/15).
+    if not merchant_scope_permitted(current_user, merchant_id):
         logger.warning(
             f"User {current_user.username} attempted to {operation} configuration "
             f"for unauthorized merchant: {merchant_id}"
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Access denied to merchant {merchant_id}",
+            detail=(
+                f"Access denied to merchant {merchant_id}"
+                if merchant_id
+                else "Access denied to reseller-scoped configuration"
+            ),
         )
 
 
@@ -108,9 +109,8 @@ def filter_configs_by_rbac(configs: List, current_user: UserInfo) -> List:
         has_reseller_access = ("*" in current_user.reseller_ids) or (
             config_reseller_id in current_user.reseller_ids
         )
-        has_merchant_access = ("*" in current_user.merchant_ids) or (
-            config_merchant_id in current_user.merchant_ids
-        )
+        # Same rule as validate_config_access, so list and single read agree.
+        has_merchant_access = merchant_scope_permitted(current_user, config_merchant_id)
         if has_reseller_access and has_merchant_access:
             filtered.append(config)
 

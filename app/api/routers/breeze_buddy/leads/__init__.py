@@ -91,10 +91,12 @@ async def push_lead(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="reseller_id is required",
         )
-    # RBAC: Check permission to push leads for this reseller/shop
-    validate_lead_access(
-        current_user, req.reseller_id, req.merchant_id, operation="push leads for"
-    )
+    # RBAC on a merchant the body names; a missing merchant_id is checked in
+    # push_lead_handler once the template's merchant is known (PT-15).
+    if req.merchant_id is not None:
+        validate_lead_access(
+            current_user, req.reseller_id, req.merchant_id, operation="push leads for"
+        )
 
     return await push_lead_handler(req, current_user)
 

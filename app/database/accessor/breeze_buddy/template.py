@@ -230,6 +230,7 @@ async def get_templates_list(
             not result
             and has_reseller_scope
             and ("merchant_id" in filters or "merchant_ids" in filters)
+            and not filters.get("merchant_id_not_null")
         ):
             logger.info(
                 "No merchant-specific templates found, falling back to generic reseller templates (merchant_id IS NULL)"

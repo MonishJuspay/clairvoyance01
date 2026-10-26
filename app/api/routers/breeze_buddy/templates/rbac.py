@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import HTTPException, status
 
 from app.core.logger import logger
+from app.core.security.authorization import merchant_scope_permitted
 from app.schemas import UserInfo
 
 
@@ -45,20 +46,20 @@ def validate_template_access(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Access denied to reseller {reseller_id}",
         )
-    # Check merchant access (if merchant_id is specified)
-    if merchant_id:
-        if (
-            merchant_id not in current_user.merchant_ids
-            and "*" not in current_user.merchant_ids
-        ):
-            logger.warning(
-                f"User {current_user.username} attempted to {operation} template "
-                f"for unauthorized merchant: {merchant_id}"
-            )
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access denied to merchant {merchant_id}",
-            )
+    # Null merchant_id is reseller-scoped: reseller role or admin only (PT-09/15).
+    if not merchant_scope_permitted(current_user, merchant_id):
+        logger.warning(
+            f"User {current_user.username} attempted to {operation} template "
+            f"for unauthorized merchant: {merchant_id}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"Access denied to merchant {merchant_id}"
+                if merchant_id
+                else "Access denied to reseller-scoped template"
+            ),
+        )
 
 
 def filter_templates_by_rbac(templates: List, current_user: UserInfo) -> List:
@@ -88,15 +89,10 @@ def filter_templates_by_rbac(templates: List, current_user: UserInfo) -> List:
             or template.reseller_id in current_user.reseller_ids
         )
 
-        # Check merchant access (templates might not have merchant_id)
-        if template.merchant_id:
-            has_merchant_access = (
-                "*" in current_user.merchant_ids
-                or template.merchant_id in current_user.merchant_ids
-            )
-        else:
-            # Templates without merchant_id are accessible if reseller access granted
-            has_merchant_access = True
+        # Null merchant_id is reseller-scoped: reseller role or admin only (PT-15).
+        has_merchant_access = merchant_scope_permitted(
+            current_user, template.merchant_id
+        )
 
         if has_reseller_access and has_merchant_access:
             filtered.append(template)
@@ -110,7 +106,12 @@ def require_admin_or_reseller_owner(
     """
     Require user to be admin or reseller owner.
 
-    Used for create/update operations on templates.
+    Passes admin, or any caller whose reseller_ids cover ``reseller_id`` —
+    regardless of role, so a merchant-role account under that reseller passes
+    too. It is a reseller-membership gate, not a merchant-scope check; callers
+    (e.g. template rollback) pair it with validate_template_access(), which
+    enforces merchant scope. Template create no longer uses it for exactly
+    that reason (PT-09).
 
     Args:
         current_user: Current authenticated user
@@ -238,6 +239,11 @@ def apply_hierarchical_template_filters(
         else:
             # No merchant filter - apply user's accessible merchants as array
             filters["merchant_ids"] = accessible_merchants
+
+    # NULL-merchant rows are reseller-scoped: exclude them in SQL for
+    # merchant/user roles so LIMIT/OFFSET/COUNT agree (PT-14).
+    if current_user.role not in ("admin", "reseller"):
+        filters["merchant_id_not_null"] = True
 
     logger.info(
         f"Applied hierarchical filters for user {current_user.username}: {filters}"

@@ -77,7 +77,11 @@ from app.schemas import ExecutionMode, LeadCallStatus, UserInfo
 from app.schemas.breeze_buddy.core import LeadCallTracker
 from app.utils.common import is_dialable
 
-from .rbac import validate_lead_read_access, validate_recording_access
+from .rbac import (
+    validate_lead_access,
+    validate_lead_read_access,
+    validate_recording_access,
+)
 
 
 async def get_lead_handler(lead_id: str, current_user: UserInfo) -> Dict:
@@ -254,6 +258,15 @@ async def push_lead_handler(req: PushLeadRequest, current_user: UserInfo) -> Dic
                     req.template_id,
                 )
                 req = req.model_copy(update={"merchant_id": template.merchant_id})
+
+            # Authorize on the merchant the lead will get: the body's, or the
+            # template's when the body omitted it (PT-15).
+            validate_lead_access(
+                current_user,
+                req.reseller_id,
+                req.merchant_id,
+                operation="push leads for",
+            )
 
         if not template:
             logger.error(

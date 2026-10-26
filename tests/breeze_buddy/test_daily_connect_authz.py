@@ -34,10 +34,11 @@ def _request() -> BreezeBuddyDailyConnectRequest:
     return BreezeBuddyDailyConnectRequest(lead_id="lead-victim")
 
 
-def _daily_lead(reseller_id: str) -> LeadCallTracker:
+def _daily_lead(reseller_id: str, merchant_id: Optional[str] = None) -> LeadCallTracker:
     return LeadCallTracker(
         id="lead-victim",
         reseller_id=reseller_id,
+        merchant_id=merchant_id,
         template="t",
         execution_mode=ExecutionMode.DAILY,
         status=LeadCallStatus.BACKLOG,
@@ -84,7 +85,7 @@ def test_the_leads_own_tenant_may_connect(monkeypatch: pytest.MonkeyPatch) -> No
     """A caller scoped to the lead's reseller is let through to the session."""
 
     async def get_lead_by_id(_lead_id: str) -> Any:
-        return _daily_lead("r-mine")
+        return _daily_lead("r-mine", "m-mine")
 
     async def start_daily_session(_lead_id: str) -> Dict[str, Any]:
         return {"room_url": "x", "token": "y"}
@@ -94,7 +95,7 @@ def test_the_leads_own_tenant_may_connect(monkeypatch: pytest.MonkeyPatch) -> No
 
     out = asyncio.run(
         handlers.breeze_buddy_daily_connect_handler(
-            _request(), _merchant(reseller_ids=["r-mine"])
+            _request(), _merchant(reseller_ids=["r-mine"], merchant_ids=["m-mine"])
         )
     )
     assert out["room_url"] == "x"

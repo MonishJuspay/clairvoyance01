@@ -20,7 +20,7 @@ import pytest
 from aiohttp import web
 
 import app.core.security.ssrf as ssrf_mod
-from app.core.security.ssrf import SSRFError, is_same_origin, ssrf_safe_request
+from app.core.security.ssrf import SSRFError, is_same_origin, make_request
 
 SECRET_HEADER = "TENANT-SECRET"
 
@@ -76,7 +76,7 @@ async def test_credentials_do_not_come_back_after_leaving_the_callers_host():
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with ssrf_safe_request(
+            async with make_request(
                 session,
                 "GET",
                 start,
@@ -105,7 +105,7 @@ async def test_credentials_survive_a_redirect_that_stays_on_the_callers_host():
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with ssrf_safe_request(
+            async with make_request(
                 session,
                 "GET",
                 start,
@@ -134,7 +134,7 @@ async def test_a_307_does_not_replay_the_body_to_another_host():
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with ssrf_safe_request(
+            async with make_request(
                 session,
                 "POST",
                 start,
@@ -160,7 +160,7 @@ async def test_a_307_keeps_the_body_on_the_callers_own_host():
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with ssrf_safe_request(
+            async with make_request(
                 session,
                 "POST",
                 start,
@@ -212,7 +212,7 @@ async def test_query_params_and_cookies_do_not_follow_a_hop_off_host():
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with ssrf_safe_request(
+            async with make_request(
                 session,
                 "GET",
                 start,
@@ -266,7 +266,7 @@ async def test_the_connection_uses_the_address_that_was_validated():
     mod._resolve_host = only_the_validator_knows
     try:
         async with aiohttp.ClientSession() as session:
-            async with ssrf_safe_request(
+            async with make_request(
                 session,
                 "GET",
                 f"http://nowhere-in-dns.invalid:{port}/x",

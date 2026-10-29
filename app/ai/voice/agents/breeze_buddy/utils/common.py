@@ -17,8 +17,8 @@ from app.core.security.sha import calculate_hmac_sha256
 from app.core.security.ssrf import (
     EgressResolutionError,
     SSRFError,
+    make_request,
     redact_url,
-    ssrf_safe_request,
 )
 from app.services.redis.client import get_redis_service
 
@@ -173,7 +173,7 @@ async def send_webhook_with_retry(
             logger.info(f"Webhook attempt {attempt}/{max_retries} to {url}")
             # The URL comes from the lead and the body is signed: check DNS at send
             # time, connect to the checked IP, stay on the host it names.
-            async with ssrf_safe_request(
+            async with make_request(
                 session, "POST", url, json=data, headers=headers, same_origin_only=True
             ) as response:
                 if response.status == 200:

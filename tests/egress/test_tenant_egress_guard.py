@@ -292,7 +292,7 @@ async def test_names_on_one_ip_do_not_share_a_connection(monkeypatch):
     session: Any = _Session([_Response(), _Response(), _Response()])
 
     for url in ("api.example.com", "dash.example.com", "api.example.com"):
-        async with ssrf.ssrf_safe_request(session, "GET", f"https://{url}/x"):
+        async with ssrf.make_request(session, "GET", f"https://{url}/x"):
             pass
 
     api, dash, api_again = [call["ssl"] for call in session.calls]
@@ -440,7 +440,7 @@ async def test_a_stalled_lookup_times_out_within_the_request_budget(monkeypatch)
     started = time.monotonic()
     async with aiohttp.ClientSession() as session:
         with pytest.raises(asyncio.TimeoutError):
-            async with ssrf.ssrf_safe_request(
+            async with ssrf.make_request(
                 session,
                 "GET",
                 "https://slow.example/",
@@ -468,7 +468,7 @@ async def test_a_dead_address_fails_over_quickly_to_the_next(monkeypatch):
     session: Any = _DeadFirstAddress([_Response()])
     timeout = aiohttp.ClientTimeout(total=10)
 
-    async with ssrf.ssrf_safe_request(
+    async with ssrf.make_request(
         session, "GET", "https://api.example.com/x", timeout=timeout
     ) as response:
         assert response.status == 200
@@ -504,7 +504,7 @@ async def test_redirects_change_the_method_only_where_aiohttp_did(
     _dns(monkeypatch, {"api.example.com": PUBLIC})
     session: Any = _Session([_Response(status, "/moved"), _Response()])
 
-    async with ssrf.ssrf_safe_request(
+    async with ssrf.make_request(
         session, method, "https://api.example.com/x", json={"a": 1}
     ):
         pass

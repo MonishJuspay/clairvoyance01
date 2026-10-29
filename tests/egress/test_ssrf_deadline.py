@@ -1,8 +1,8 @@
-"""ssrf_safe_request — one deadline for the whole redirect chain.
+"""make_request — one deadline for the whole redirect chain.
 
 ``ClientTimeout(total=N)`` means N seconds for the operation; aiohttp honours
 that across redirects since it follows them in one request() call. Because
-``ssrf_safe_request`` follows them itself, each hop would otherwise start a
+``make_request`` follows them itself, each hop would otherwise start a
 fresh N-second clock, and the remote server (not the caller) picks the hop
 count.
 
@@ -20,7 +20,7 @@ import aiohttp
 import pytest
 from aiohttp import web
 
-from app.core.security.ssrf import ssrf_safe_request
+from app.core.security.ssrf import make_request
 
 
 @pytest.fixture(autouse=True)
@@ -54,7 +54,7 @@ async def test_the_caller_s_total_covers_the_whole_chain_not_each_hop():
         async with aiohttp.ClientSession() as session:
             started = time.perf_counter()
             with pytest.raises(asyncio.TimeoutError):
-                async with ssrf_safe_request(
+                async with make_request(
                     session,
                     "GET",
                     url,
@@ -75,7 +75,7 @@ async def test_a_chain_inside_the_budget_still_succeeds():
     runner, url = await _chain(hops=3, per_hop_delay=0.1)
     try:
         async with aiohttp.ClientSession() as session:
-            async with ssrf_safe_request(
+            async with make_request(
                 session,
                 "GET",
                 url,
@@ -97,7 +97,7 @@ async def test_the_session_default_is_used_when_the_caller_passes_no_timeout():
         async with aiohttp.ClientSession(timeout=timeout) as session:
             started = time.perf_counter()
             with pytest.raises(asyncio.TimeoutError):
-                async with ssrf_safe_request(
+                async with make_request(
                     session, "GET", url, allow_http=True, max_redirects=3
                 ) as resp:
                     await resp.text()
@@ -113,7 +113,7 @@ async def test_no_budget_anywhere_leaves_behaviour_unchanged():
     try:
         timeout = aiohttp.ClientTimeout(total=None)
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with ssrf_safe_request(
+            async with make_request(
                 session, "GET", url, allow_http=True, max_redirects=3
             ) as resp:
                 assert resp.status == 200
@@ -134,7 +134,7 @@ async def test_the_other_timeout_fields_survive_the_clamp():
                 return original(method, u, **kw)
 
             session.request = spy  # type: ignore[method-assign]
-            async with ssrf_safe_request(
+            async with make_request(
                 session,
                 "GET",
                 url,

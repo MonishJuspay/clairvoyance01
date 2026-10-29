@@ -48,8 +48,8 @@ from app.core.security.ssrf import (
     EgressResolutionError,
     RedirectLimitError,
     SSRFError,
+    make_request,
     redact_url,
-    ssrf_safe_request,
 )
 
 
@@ -141,7 +141,7 @@ class HttpRequestExecutor:
 
                     # Resolves DNS now, refuses internal addresses, connects to the
                     # checked IP and re-checks every redirect hop.
-                    async with ssrf_safe_request(
+                    async with make_request(
                         self.session,
                         config.method.value,
                         url,

@@ -18,7 +18,7 @@ from app.core.security.ssrf import (
     SSRFError,
     host_matches_allowlist,
     ip_block_reason,
-    ssrf_safe_request,
+    make_request,
     validate_egress_url,
 )
 
@@ -107,9 +107,9 @@ def test_host_allowlist_suffix_confusion_is_rejected():
     assert not host_matches_allowlist("https://nottwilio.com/x", ["twilio.com"])
 
 
-# ── ssrf_safe_request: per-hop redirect revalidation (the core PT-07 fix) ────
+# ── make_request: per-hop redirect revalidation (the core PT-07 fix) ────
 class _FakeResp:
-    """Minimal stand-in for aiohttp.ClientResponse used by ssrf_safe_request."""
+    """Minimal stand-in for aiohttp.ClientResponse used by make_request."""
 
     def __init__(self, status: int, headers: dict | None = None):
         self.status = status
@@ -123,7 +123,7 @@ class _FakeResp:
 class _FakeSession:
     """Returns queued responses and records the auth each hop was issued with.
 
-    Public IP literals (8.8.8.8 / 1.1.1.1) are used as hosts so ssrf_safe_request
+    Public IP literals (8.8.8.8 / 1.1.1.1) are used as hosts so make_request
     validates them without any DNS resolution.
     """
 
@@ -138,18 +138,18 @@ class _FakeSession:
         return self._responses.pop(0)
 
 
-async def test_ssrf_safe_request_blocks_redirect_to_metadata():
+async def test_make_request_blocks_redirect_to_metadata():
     # aiohttp's own redirect following would skip the check; this helper re-validates.
     session = _FakeSession([_FakeResp(302, {"Location": "https://169.254.169.254/"})])
     with pytest.raises(SSRFError):
-        async with ssrf_safe_request(
+        async with make_request(
             cast(aiohttp.ClientSession, session), "GET", "https://8.8.8.8/start"
         ):
             pass  # pragma: no cover - the redirect hop must raise before the body
     assert len(session.requests) == 1  # metadata hop rejected before it was sent
 
 
-async def test_ssrf_safe_request_strips_auth_on_offsite_redirect():
+async def test_make_request_strips_auth_on_offsite_redirect():
     # Leaving the allow-list must drop credentials, else a 302 exfiltrates them.
     auth = aiohttp.BasicAuth("user", "secret")
     session = _FakeSession(
@@ -158,7 +158,7 @@ async def test_ssrf_safe_request_strips_auth_on_offsite_redirect():
             _FakeResp(200, {}),
         ]
     )
-    async with ssrf_safe_request(
+    async with make_request(
         cast(aiohttp.ClientSession, session),
         "GET",
         "https://8.8.8.8/start",
@@ -182,7 +182,7 @@ async def test_rewrite_statuses_turn_post_into_a_bodyless_get(status):
     session = _FakeSession(
         [_FakeResp(status, {"Location": "https://8.8.8.8/next"}), _FakeResp(200, {})]
     )
-    async with ssrf_safe_request(
+    async with make_request(
         cast(aiohttp.ClientSession, session),
         "POST",
         "https://8.8.8.8/start",
@@ -205,7 +205,7 @@ async def test_307_preserves_method_and_body_on_the_callers_own_host():
     session = _FakeSession(
         [_FakeResp(307, {"Location": "https://8.8.8.8/next"}), _FakeResp(200, {})]
     )
-    async with ssrf_safe_request(
+    async with make_request(
         cast(aiohttp.ClientSession, session),
         "POST",
         "https://8.8.8.8/start",
@@ -225,7 +225,7 @@ async def test_exhausting_the_hop_budget_raises_instead_of_returning_the_3xx():
         ]
     )
     with pytest.raises(SSRFError, match="Too many redirects"):
-        async with ssrf_safe_request(
+        async with make_request(
             cast(aiohttp.ClientSession, session),
             "GET",
             "https://8.8.8.8/start",
@@ -238,7 +238,7 @@ async def test_max_redirects_zero_refuses_the_first_redirect():
     """What the signed reporting webhook passes: no hop is legitimate."""
     session = _FakeSession([_FakeResp(302, {"Location": "https://1.1.1.1/next"})])
     with pytest.raises(SSRFError, match="Too many redirects"):
-        async with ssrf_safe_request(
+        async with make_request(
             cast(aiohttp.ClientSession, session),
             "POST",
             "https://8.8.8.8/hook",
@@ -252,7 +252,7 @@ async def test_max_redirects_zero_refuses_the_first_redirect():
 async def test_caller_supplied_allow_redirects_does_not_explode():
     """It used to raise TypeError: multiple values for 'allow_redirects'."""
     session = _FakeSession([_FakeResp(200, {})])
-    async with ssrf_safe_request(
+    async with make_request(
         cast(aiohttp.ClientSession, session),
         "GET",
         "https://8.8.8.8/x",
@@ -288,7 +288,7 @@ async def test_allowlist_rejection_message_does_not_carry_the_query_string():
     message is written to logs routinely — it must not embed the secret."""
     session = cast(aiohttp.ClientSession, _FakeSession([]))
     with pytest.raises(SSRFError) as exc:
-        async with ssrf_safe_request(
+        async with make_request(
             session,
             "GET",
             "https://1.1.1.1/x?token=s3cret",
@@ -303,7 +303,7 @@ async def test_redirect_budget_message_does_not_carry_the_query_string():
     """Same for the hop-budget error, which embeds the original URL."""
     session = _FakeSession([_FakeResp(302, {"Location": "https://1.1.1.1/next"})])
     with pytest.raises(SSRFError) as exc:
-        async with ssrf_safe_request(
+        async with make_request(
             cast(aiohttp.ClientSession, session),
             "GET",
             "https://8.8.8.8/start?token=s3cret",

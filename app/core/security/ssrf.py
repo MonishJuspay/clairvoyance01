@@ -17,7 +17,7 @@ Design notes:
 - ``SSRF_ALLOW_PRIVATE_EGRESS=true`` is a local-dev-only escape hatch, off by
   default regardless of ENVIRONMENT.
 - ``validate_egress_url``/``ip_block_reason``/``host_matches_allowlist`` are
-  client-agnostic; only ``ssrf_safe_request`` binds to aiohttp — an httpx or
+  client-agnostic; only ``make_request`` binds to aiohttp — an httpx or
   requests caller should call ``validate_egress_url`` per hop itself, with
   redirects disabled.
 """
@@ -310,7 +310,7 @@ def _without_credential_headers(kwargs: dict, target: str) -> dict:
     dropped = sorted(set(dict(headers)) - set(kept))
     if dropped:
         logger.warning(
-            f"ssrf_safe_request: withholding {dropped} on cross-host redirect "
+            f"make_request: withholding {dropped} on cross-host redirect "
             f"to {urlparse(target).hostname!r}"
         )
     return {**kwargs, "headers": kept}
@@ -376,7 +376,7 @@ def _pinned_targets(url: str, ips: List[str]) -> List[tuple]:
     so routing and certificate verification are unchanged.
 
     Every checked address is offered, not just the first, so a host with both an
-    A and an AAAA record keeps its failover. ``ssrf_safe_request`` caps the
+    A and an AAAA record keeps its failover. ``make_request`` caps the
     connect time of each address but the last, so a silent one is skipped fast.
     """
     parts = URL(url)
@@ -393,7 +393,7 @@ def _pinned_targets(url: str, ips: List[str]) -> List[tuple]:
 
 
 @asynccontextmanager
-async def ssrf_safe_request(
+async def make_request(
     session: aiohttp.ClientSession,
     method: str,
     url: str,
@@ -428,7 +428,7 @@ async def ssrf_safe_request(
     # Redirects always drive here; caller-supplied allow_redirects would collide.
     if kwargs.pop("allow_redirects", None) is not None:
         logger.warning(
-            "ssrf_safe_request: ignoring caller-supplied allow_redirects; "
+            "make_request: ignoring caller-supplied allow_redirects; "
             "redirects are followed manually so every hop can be revalidated"
         )
 

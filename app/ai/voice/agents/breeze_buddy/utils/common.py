@@ -170,7 +170,7 @@ async def send_webhook_with_retry(
 
     for attempt in range(1, max_retries + 1):
         try:
-            logger.info(f"Webhook attempt {attempt}/{max_retries} to {url}")
+            logger.info(f"Webhook attempt {attempt}/{max_retries} to {redact_url(url)}")
             # The URL comes from the lead and the body is signed: check DNS at send
             # time, connect to the checked IP, stay on the host it names.
             async with make_request(
@@ -197,7 +197,7 @@ async def send_webhook_with_retry(
         if attempt < max_retries:
             logger.info(f"Retrying webhook (attempt {attempt + 1}/{max_retries})...")
 
-    logger.error(f"All {max_retries} webhook attempts failed for {url}")
+    logger.error(f"All {max_retries} webhook attempts failed for {redact_url(url)}")
     return False
 
 

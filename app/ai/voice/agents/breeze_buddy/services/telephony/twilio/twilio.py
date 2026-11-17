@@ -21,6 +21,7 @@ from app.core.config.static import (
     TWILIO_TEMPLATE_WEBSOCKET_URL,
 )
 from app.core.logger import logger
+from app.core.network import redact_url
 from app.core.transport.http_client import get_proxy_config
 from app.schemas import CallProvider, TelephonyConfig
 
@@ -51,7 +52,9 @@ class TwilioProvider(VoiceCallProvider):
         auth_token = self.TWILIO_AUTH_TOKEN
 
         if proxy_url:
-            logger.info(f"Configuring Twilio client with proxy: {proxy_url}")
+            logger.info(
+                f"Configuring Twilio client with proxy: {redact_url(proxy_url)}"
+            )
             # Use TwilioHttpClient with proxy configuration
             proxy_client = TwilioHttpClient(
                 proxy={

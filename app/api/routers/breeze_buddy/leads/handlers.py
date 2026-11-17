@@ -56,6 +56,7 @@ from app.ai.voice.agents.breeze_buddy.utils.tts_utils.tts_provider_selector impo
 )
 from app.core.concurrency import spawn_background_task
 from app.core.logger import logger
+from app.core.network import redact_url
 from app.database.accessor import (
     append_metadata_field,
     create_lead_call_tracker,
@@ -574,7 +575,7 @@ async def get_call_recording_handler(
     call_provider = telephony_number.provider.value
 
     # Step 6: Fetch audio with provider-specific credentials
-    logger.info(f"Fetching recording from URL: {lead.recording_url}")
+    logger.info(f"Fetching recording from URL: {redact_url(lead.recording_url)}")
 
     if call_provider.upper() == "TWILIO":
         audio_file = await download_call_recording_twilio(lead.recording_url, call_sid)

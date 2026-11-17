@@ -109,6 +109,17 @@ def test_a_websocket_handshake_line_never_shows_the_login_token(
     assert SECRET not in logged[0]
 
 
+@pytest.mark.parametrize(
+    "name",
+    ["access_token", "api_key", "key", "signature", "client_secret", "password"],
+)
+def test_common_credential_names_are_redacted_too(logged: List[str], name: str) -> None:
+    InterceptHandler().emit(access_record(f"/x?page=2&{name}={SECRET}&v=1"))
+
+    assert logged == [f'{CLIENT} - "POST /x?page=2&{name}=[redacted]&v=1 HTTP/1.1" 200']
+    assert SECRET not in logged[0]
+
+
 def test_other_query_parameters_are_logged_as_they_are(logged: List[str]) -> None:
     path = "/agent/voice/breeze-buddy/leads?not_secret=keep&page=2&tokens=3"
 

@@ -68,9 +68,12 @@ def json_sink(message):
 # (?token=), Exotel's answer URL (?auth_token=), Meta's webhook handshake
 # (?hub.verify_token=) and the console's STT WebSocket (?token=, the user's
 # login JWT: browsers cannot set WebSocket headers). uvicorn logs the full URL of every request (uvicorn.access) and
-# WebSocket handshake (uvicorn.error), so those values are redacted there.
+# WebSocket handshake (uvicorn.error), so those values are redacted there,
+# along with the other common credential names a client may put in a URL.
 _SECRET_QUERY_PARAM = re.compile(
-    r"([?&](?:secret|token|auth_token|hub\.verify_token)=)[^&\s\"]*", re.IGNORECASE
+    r"([?&](?:secret|token|auth_token|access_token|hub\.verify_token|api_key|key"
+    r"|signature|client_secret|password)=)[^&\s\"]*",
+    re.IGNORECASE,
 )
 _URL_LOGGERS = ("uvicorn.access", "uvicorn.error")
 

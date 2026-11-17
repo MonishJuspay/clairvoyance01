@@ -13,6 +13,7 @@ from app.core.config.static import (
     CLOUD_ENVIRONMENT,
 )
 from app.core.logger import logger
+from app.core.network import redact_url
 
 
 def get_proxy_config() -> Optional[str]:
@@ -26,7 +27,9 @@ def get_proxy_config() -> Optional[str]:
 
     if AWS_PROXY_HOST and AWS_PROXY_PORT:
         proxy_url = f"http://{AWS_PROXY_HOST}:{AWS_PROXY_PORT}"
-        logger.info(f"Using proxy configuration for AWS environment: {proxy_url}")
+        logger.info(
+            f"Using proxy configuration for AWS environment: {redact_url(proxy_url)}"
+        )
         return proxy_url
 
     logger.debug("No proxy configuration found for AWS environment")
@@ -48,7 +51,7 @@ def create_http_client(**kwargs) -> httpx.AsyncClient:
     client_kwargs = kwargs.copy()
     if proxy_url:
         client_kwargs["proxy"] = proxy_url
-        logger.debug(f"Created httpx client with proxy: {proxy_url}")
+        logger.debug(f"Created httpx client with proxy: {redact_url(proxy_url)}")
     else:
         logger.debug("Created httpx client without proxy")
 
@@ -70,7 +73,7 @@ def create_aiohttp_session(**session_kwargs) -> aiohttp.ClientSession:
     # Use aiohttp's built-in proxy parameter in the constructor
     if proxy_url:
         session_kwargs["proxy"] = proxy_url
-        logger.debug(f"Created aiohttp session with proxy: {proxy_url}")
+        logger.debug(f"Created aiohttp session with proxy: {redact_url(proxy_url)}")
     else:
         logger.debug("Created aiohttp session without proxy")
 

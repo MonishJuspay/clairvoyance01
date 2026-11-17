@@ -19,6 +19,7 @@ from app.core.config.static import (
     VOBIZ_RECORDING_TIME_LIMIT,
 )
 from app.core.logger import logger
+from app.core.network import redact_url
 from app.core.transport.http_client import get_proxy_config
 
 # Vobiz may serve a WAV file under an .mp3 URL; a WAV starts with "RIFF".
@@ -88,7 +89,7 @@ async def download_call_recording(
     """Download a Vobiz recording into memory (media.vobiz.ai needs auth headers)."""
     try:
         proxy_url = get_proxy_config()
-        logger.info(f"Downloading Vobiz recording from: {recording_url}")
+        logger.info(f"Downloading Vobiz recording from: {redact_url(recording_url)}")
         url = recording_url
         async with asyncio.timeout(_DOWNLOAD_TIMEOUT_SECONDS):
             async with aiohttp.ClientSession() as session:

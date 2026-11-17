@@ -20,7 +20,7 @@ import aiohttp
 import pytest
 from aiohttp import web
 
-from app.core.security.ssrf import make_request
+from app.core.network import make_request
 
 
 @pytest.fixture(autouse=True)

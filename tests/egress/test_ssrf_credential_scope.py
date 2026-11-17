@@ -20,7 +20,8 @@ import pytest
 from aiohttp import web
 
 import app.core.security.ssrf as ssrf_mod
-from app.core.security.ssrf import SSRFError, is_same_origin, make_request
+from app.core.network import make_request
+from app.core.security.ssrf import SSRFError, is_same_origin
 
 SECRET_HEADER = "TENANT-SECRET"
 

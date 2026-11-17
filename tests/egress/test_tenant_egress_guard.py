@@ -18,6 +18,7 @@ import httpx
 import pytest
 from mcp.client.session_group import StreamableHttpParameters
 
+import app.core.network as network
 import app.core.security.ssrf as ssrf
 
 # isort: off
@@ -283,7 +284,7 @@ async def test_mcp_request_tries_the_next_checked_ip(monkeypatch):
 
     assert response.status_code == 200
     assert [r.url.host for r in seen] == [PUBLIC, other]
-    assert seen[0].extensions["timeout"]["connect"] == ssrf._ADDRESS_CONNECT_CAP
+    assert seen[0].extensions["timeout"]["connect"] == network.ADDRESS_CONNECT_CAP
     assert seen[1].extensions["timeout"]["connect"] == 5.0  # the client's own
 
 
@@ -292,7 +293,7 @@ async def test_names_on_one_ip_do_not_share_a_connection(monkeypatch):
     session: Any = _Session([_Response(), _Response(), _Response()])
 
     for url in ("api.example.com", "dash.example.com", "api.example.com"):
-        async with ssrf.make_request(session, "GET", f"https://{url}/x"):
+        async with network.make_request(session, "GET", f"https://{url}/x"):
             pass
 
     api, dash, api_again = [call["ssl"] for call in session.calls]
@@ -440,7 +441,7 @@ async def test_a_stalled_lookup_times_out_within_the_request_budget(monkeypatch)
     started = time.monotonic()
     async with aiohttp.ClientSession() as session:
         with pytest.raises(asyncio.TimeoutError):
-            async with ssrf.make_request(
+            async with network.make_request(
                 session,
                 "GET",
                 "https://slow.example/",
@@ -468,13 +469,13 @@ async def test_a_dead_address_fails_over_quickly_to_the_next(monkeypatch):
     session: Any = _DeadFirstAddress([_Response()])
     timeout = aiohttp.ClientTimeout(total=10)
 
-    async with ssrf.make_request(
+    async with network.make_request(
         session, "GET", "https://api.example.com/x", timeout=timeout
     ) as response:
         assert response.status == 200
 
     first, second = session.calls
-    assert first["timeout"].sock_connect == ssrf._ADDRESS_CONNECT_CAP
+    assert first["timeout"].sock_connect == network.ADDRESS_CONNECT_CAP
     assert second["url"] == "https://93.184.216.35/x"
     assert second["timeout"].sock_connect is None  # the last keeps the full budget
 
@@ -504,7 +505,7 @@ async def test_redirects_change_the_method_only_where_aiohttp_did(
     _dns(monkeypatch, {"api.example.com": PUBLIC})
     session: Any = _Session([_Response(status, "/moved"), _Response()])
 
-    async with ssrf.make_request(
+    async with network.make_request(
         session, method, "https://api.example.com/x", json={"a": 1}
     ):
         pass

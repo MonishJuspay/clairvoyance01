@@ -44,10 +44,10 @@ from app.core.config.static import (
     HTTP_REQUEST_MAX_RESPONSE_BYTES,
 )
 from app.core.logger import logger
-from app.core.security.ssrf import (
-    EgressResolutionError,
-    RedirectLimitError,
-    SSRFError,
+from app.core.network import (
+    HostUnresolvable,
+    RequestBlocked,
+    TooManyRedirects,
     make_request,
     redact_url,
 )
@@ -264,12 +264,12 @@ class HttpRequestExecutor:
                     logger.warning(
                         f"HTTP {config.method.value} timeout after {config.timeout}s (attempt {attempt})"
                     )
-                except EgressResolutionError as e:
+                except HostUnresolvable as e:
                     # A DNS hiccup, not a refusal: worth another attempt.
                     logger.warning(
                         f"HTTP {config.method.value} DNS failure: {e} (attempt {attempt})"
                     )
-                except RedirectLimitError:
+                except TooManyRedirects:
                     logger.error(
                         f"HTTP {config.method.value} exceeded max redirects "
                         f"({HTTP_REQUEST_MAX_REDIRECTS}), not retrying"
@@ -280,7 +280,7 @@ class HttpRequestExecutor:
                         0,
                         f"Too many redirects (max: {HTTP_REQUEST_MAX_REDIRECTS})",
                     )
-                except SSRFError as e:
+                except RequestBlocked as e:
                     # Blocked target: never retried.
                     logger.error(
                         f"HTTP {config.method.value} to {redact_url(url)} refused: {e}"

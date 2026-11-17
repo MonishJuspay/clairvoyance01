@@ -19,12 +19,8 @@ from app.ai.voice.agents.breeze_buddy.services.telephony.vobiz.vobiz import (
     VobizProvider,
 )
 from app.core.logger import logger
-from app.core.security.ssrf import (
-    SSRFError,
-    host_matches_allowlist,
-    make_request,
-    redact_url,
-)
+from app.core.network import NetworkError, make_request, redact_url
+from app.core.security.ssrf import host_matches_allowlist
 from app.core.transport.http_client import get_proxy_config
 from app.schemas import CallProvider, TelephonyConfig
 
@@ -123,7 +119,7 @@ async def download_recording(
         )
         return audio_file
 
-    except SSRFError as e:
+    except NetworkError as e:
         logger.warning(f"Refusing to download {provider} recording: {e}")
         return None
     except Exception as e:

@@ -13,12 +13,17 @@ from typing import cast
 import aiohttp
 import pytest
 
+from app.core.network import (
+    RequestBlocked,
+    TooManyRedirects,
+    make_request,
+    redact_url,
+)
 from app.core.security import ssrf
 from app.core.security.ssrf import (
     SSRFError,
     host_matches_allowlist,
     ip_block_reason,
-    make_request,
     validate_egress_url,
 )
 
@@ -141,7 +146,7 @@ class _FakeSession:
 async def test_make_request_blocks_redirect_to_metadata():
     # aiohttp's own redirect following would skip the check; this helper re-validates.
     session = _FakeSession([_FakeResp(302, {"Location": "https://169.254.169.254/"})])
-    with pytest.raises(SSRFError):
+    with pytest.raises(RequestBlocked):
         async with make_request(
             cast(aiohttp.ClientSession, session), "GET", "https://8.8.8.8/start"
         ):
@@ -224,7 +229,7 @@ async def test_exhausting_the_hop_budget_raises_instead_of_returning_the_3xx():
             _FakeResp(302, {"Location": "https://8.8.8.8/b"}),
         ]
     )
-    with pytest.raises(SSRFError, match="Too many redirects"):
+    with pytest.raises(TooManyRedirects, match="Too many redirects"):
         async with make_request(
             cast(aiohttp.ClientSession, session),
             "GET",
@@ -237,7 +242,7 @@ async def test_exhausting_the_hop_budget_raises_instead_of_returning_the_3xx():
 async def test_max_redirects_zero_refuses_the_first_redirect():
     """What the signed reporting webhook passes: no hop is legitimate."""
     session = _FakeSession([_FakeResp(302, {"Location": "https://1.1.1.1/next"})])
-    with pytest.raises(SSRFError, match="Too many redirects"):
+    with pytest.raises(TooManyRedirects, match="Too many redirects"):
         async with make_request(
             cast(aiohttp.ClientSession, session),
             "POST",
@@ -268,26 +273,26 @@ def test_redact_url_strips_query_and_userinfo():
     with a query token or Basic userinfo, so both must be stripped while the
     host and path an operator needs for triage survive."""
     assert (
-        ssrf.redact_url("https://hook.example.com/cb?token=s3cret&id=7")
+        redact_url("https://hook.example.com/cb?token=s3cret&id=7")
         == "https://hook.example.com/cb?REDACTED"
     )
     assert (
-        ssrf.redact_url("https://user:pw@hook.example.com/cb")
+        redact_url("https://user:pw@hook.example.com/cb")
         == "https://REDACTED@hook.example.com/cb"
     )
     assert (
-        ssrf.redact_url("http://hook.example.com:8080/a/b")
+        redact_url("http://hook.example.com:8080/a/b")
         == "http://hook.example.com:8080/a/b"
     )
     # A helper used to build error messages must never raise.
-    assert ssrf.redact_url("::::not a url::::")
+    assert redact_url("::::not a url::::")
 
 
 async def test_allowlist_rejection_message_does_not_carry_the_query_string():
     """The allow-list refusal fires on the guard's own success path, so its
     message is written to logs routinely — it must not embed the secret."""
     session = cast(aiohttp.ClientSession, _FakeSession([]))
-    with pytest.raises(SSRFError) as exc:
+    with pytest.raises(RequestBlocked) as exc:
         async with make_request(
             session,
             "GET",
@@ -302,7 +307,7 @@ async def test_allowlist_rejection_message_does_not_carry_the_query_string():
 async def test_redirect_budget_message_does_not_carry_the_query_string():
     """Same for the hop-budget error, which embeds the original URL."""
     session = _FakeSession([_FakeResp(302, {"Location": "https://1.1.1.1/next"})])
-    with pytest.raises(SSRFError) as exc:
+    with pytest.raises(TooManyRedirects) as exc:
         async with make_request(
             cast(aiohttp.ClientSession, session),
             "GET",

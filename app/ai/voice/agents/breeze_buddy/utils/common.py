@@ -13,13 +13,13 @@ from pydub import AudioSegment
 from app.ai.voice.llm.types import RealtimeLLMProvider
 from app.core.config.static import ORDER_CONFIRMATION_WEBHOOK_SECRET_KEY
 from app.core.logger import logger
-from app.core.security.sha import calculate_hmac_sha256
-from app.core.security.ssrf import (
-    EgressResolutionError,
-    SSRFError,
+from app.core.network import (
+    HostUnresolvable,
+    NetworkError,
     make_request,
     redact_url,
 )
+from app.core.security.sha import calculate_hmac_sha256
 from app.services.redis.client import get_redis_service
 
 
@@ -184,9 +184,9 @@ async def send_webhook_with_retry(
                     logger.warning(
                         f"Webhook attempt {attempt} failed. Status: {response.status}, Body: {response_text}"
                     )
-        except EgressResolutionError as e:
+        except HostUnresolvable as e:
             logger.warning(f"Webhook attempt {attempt} DNS failure: {e}")
-        except SSRFError as e:
+        except NetworkError as e:
             # A refusal, not a fault: another attempt gets the same answer.
             logger.error(f"Webhook to {redact_url(url)} refused: {e}")
             return False

@@ -12,12 +12,11 @@ import httpx
 from mcp.client.session_group import StreamableHttpParameters
 
 from app.core.logger import logger
+from app.core.network import ADDRESS_CONNECT_CAP, redact_url
 from app.core.security.ssrf import (
-    _ADDRESS_CONNECT_CAP,
     EgressResolutionError,
     SSRFError,
     is_same_origin,
-    redact_url,
     validate_egress_url,
 )
 
@@ -76,8 +75,8 @@ class McpEgressTransport(httpx.AsyncBaseTransport):
             }
             if not last:  # a dead address must not eat the whole budget
                 timeout: Dict[str, Any] = dict(request.extensions.get("timeout") or {})
-                connect = timeout.get("connect") or _ADDRESS_CONNECT_CAP
-                timeout["connect"] = min(connect, _ADDRESS_CONNECT_CAP)
+                connect = timeout.get("connect") or ADDRESS_CONNECT_CAP
+                timeout["connect"] = min(connect, ADDRESS_CONNECT_CAP)
                 extensions["timeout"] = timeout
             return httpx.Request(
                 request.method,

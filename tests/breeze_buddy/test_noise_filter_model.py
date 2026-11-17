@@ -19,11 +19,11 @@ from app.ai.voice.agents.breeze_buddy.template.types import (
     NoiseFilterModel,
 )
 
-from app.ai.voice.agents.breeze_buddy.agent import transport
-from app.ai.voice.agents.breeze_buddy.agent.transport import (
+from app.ai.voice.agents.breeze_buddy.agent import noise_filter
+from app.ai.voice.agents.breeze_buddy.agent.noise_filter import _resolve_aic_model
+from app.ai.voice.agents.breeze_buddy.agent.utils import (
     TRANSPORT_TYPE_DAILY,
     TRANSPORT_TYPE_TELEPHONY,
-    _resolve_aic_model,
 )
 
 # isort: on
@@ -45,7 +45,7 @@ def models(tmp_path, monkeypatch):
     """Every artifact present in a temp dir, wired into static config."""
     for attr, name in NAMES.items():
         (tmp_path / name).write_bytes(b"model")
-        monkeypatch.setattr(transport.static, attr, str(tmp_path / name))
+        monkeypatch.setattr(noise_filter.static, attr, str(tmp_path / name))
     return tmp_path
 
 

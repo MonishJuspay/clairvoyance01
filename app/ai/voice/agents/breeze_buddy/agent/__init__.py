@@ -46,12 +46,12 @@ from app.ai.voice.agents.breeze_buddy.agent.pipeline import (
 from app.ai.voice.agents.breeze_buddy.agent.prompt_prefill import spawn_prefill
 from app.ai.voice.agents.breeze_buddy.agent.transfer import apply_transfer
 from app.ai.voice.agents.breeze_buddy.agent.transport import (
-    TRANSPORT_TYPE_DAILY,
-    TRANSPORT_TYPE_VOBIZ,
     create_telephony_transport,
     get_transport_params,
 )
 from app.ai.voice.agents.breeze_buddy.agent.utils import (
+    TRANSPORT_TYPE_DAILY,
+    TRANSPORT_TYPE_VOBIZ,
     end_call_with_errors,
     send_initial_greeting,
     send_initial_greeting_daily,

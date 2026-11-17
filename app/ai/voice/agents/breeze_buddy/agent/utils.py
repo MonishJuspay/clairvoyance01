@@ -21,6 +21,12 @@ from app.core.logger import logger
 from app.schemas.breeze_buddy.core import LeadCallTracker
 from app.services.redis.client import get_redis_service
 
+# Transport types: shared by transport.py and noise_filter.py (which picks the
+# 16 kHz or 8 kHz model by transport), so neither imports the other's.
+TRANSPORT_TYPE_DAILY = "daily"
+TRANSPORT_TYPE_TELEPHONY = "telephony"
+TRANSPORT_TYPE_VOBIZ = "vobiz"
+
 # Daily output runs at PipelineParams default (24 kHz, 16-bit, mono); the
 # telephony greeting cache stores mulaw 8 kHz, so we transcode at retrieval.
 DAILY_OUTPUT_SAMPLE_RATE = 24000

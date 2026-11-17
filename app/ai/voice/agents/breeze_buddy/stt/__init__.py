@@ -34,6 +34,7 @@ from app.ai.voice.stt import (
     DeepgramConfig,
     DeepgramFluxConfig,
     ElevenLabsConfig,
+    PhononConfig,
     SarvamConfig,
     SmallestConfig,
     SonioxConfig,
@@ -43,6 +44,7 @@ from app.ai.voice.stt import (
     build_elevenlabs_stt,
     build_google_stt,
     build_openai_stt,
+    build_phonon_stt,
     build_sarvam_stt,
     build_smallest_stt,
     build_soniox_stt,
@@ -71,6 +73,8 @@ from app.core.config.static import (
     BREEZE_BUDDY_SONIOX_WS_PING_TIMEOUT,
     BREEZE_BUDDY_STT_SERVICE,
     OPENAI_STT_MODEL,
+    PHONON_STT_API_KEY,
+    PHONON_STT_URL,
     SAMPLE_RATE,
 )
 from app.core.logger import logger
@@ -121,6 +125,14 @@ def _language_list(language: str | list[str] | None) -> list[str]:
         return []
     items = language if isinstance(language, list) else [language]
     return [code.strip() for item in items for code in item.split(",") if code.strip()]
+
+
+def _phonon_language(language: str | list[str] | None) -> str | None:
+    """The template's language for Phonon, passed as-is (Phonon normalises
+    it). Several codes are a mixed-language call: none is sent, so Phonon
+    auto-detects rather than pinning the first."""
+    codes = _language_list(language)
+    return codes[0] if len(codes) == 1 else None
 
 
 async def create_stt_from_config(
@@ -449,6 +461,17 @@ async def create_stt_from_config(
             )
         )
 
+    if config.provider == STTProvider.PHONON:
+        # Phonon, our self-hosted server: its address and key are the
+        # deployment's, never a template's.
+        return build_phonon_stt(
+            PhononConfig(
+                url=PHONON_STT_URL,
+                api_key=PHONON_STT_API_KEY or "",
+                language=_phonon_language(config.language),
+            )
+        )
+
     # Default: Google
     logger.info("Using Google STT service for Breeze Buddy")
     account = await resolver.get(config, GcpAccount)
@@ -487,6 +510,7 @@ async def get_stt_service(
         "elevenlabs": STTProvider.ELEVENLABS,
         "assemblyai": STTProvider.ASSEMBLYAI,
         "smallest": STTProvider.SMALLEST,
+        # No "phonon": it needs a template with turn_detection='smart_turn'.
     }
     provider = provider_map.get(BREEZE_BUDDY_STT_SERVICE, STTProvider.GOOGLE)
 

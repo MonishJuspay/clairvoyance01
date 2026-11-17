@@ -64,6 +64,10 @@ class STTProvider(str, Enum):
     ELEVENLABS = "elevenlabs"
     ASSEMBLYAI = "assemblyai"
     SMALLEST = "smallest"
+    # Phonon, our self-hosted STT server. No per-template block: its address
+    # and key are the deployment's (PHONON_STT_URL / PHONON_STT_API_KEY),
+    # never a template's, and it needs turn_detection='smart_turn'.
+    PHONON = "phonon"
 
 
 class SonioxSTTConfig(BaseModel):
@@ -751,6 +755,22 @@ class STTConfiguration(BaseModel):
                 "deepgram Flux ends turns itself and ignores SmartTurn: use "
                 "turn_detection='stt_native' (tune eot_threshold / "
                 "eot_timeout_ms) or 'timeout'"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _phonon_needs_smart_turn(self) -> "STTConfiguration":
+        """Phonon ends a turn only when the client sends Finalize, on the
+        local VAD's stop. Only smart_turn guarantees a VAD (the global
+        BREEZE_BUDDY_ENABLE_VAD flag is off by default); without one no
+        final arrives until Phonon's 30 s cut, and the bot never replies."""
+        if (
+            self.provider == STTProvider.PHONON
+            and self.turn_detection != TurnDetectionMode.SMART_TURN
+        ):
+            raise ValueError(
+                "provider='phonon' needs turn_detection='smart_turn': Phonon "
+                "has no endpointing of its own; the local VAD ends each turn"
             )
         return self
 

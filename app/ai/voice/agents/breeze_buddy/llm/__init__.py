@@ -13,6 +13,7 @@ Dispatch logic:
 
 from __future__ import annotations
 
+import asyncio
 from typing import Optional, Union
 
 from pipecat.services.aws.llm import AWSBedrockLLMService
@@ -246,7 +247,10 @@ async def _resolve_vertex(
         thinking_budget = llm_config.thinking.thinking_budget
         thinking_level = llm_config.thinking.thinking_level
 
-    return build_vertex_llm(
+    # The constructor fetches a Google OAuth token over the network: run it
+    # off the loop so a slow Google cannot stall every request on the pod.
+    return await asyncio.to_thread(
+        build_vertex_llm,
         VertexConfig(
             credentials_json=credentials_json,
             project_id=project_id,
@@ -261,7 +265,7 @@ async def _resolve_vertex(
                 if llm_config.function_call_timeout_secs
                 else 10.0
             ),
-        )
+        ),
     )
 
 

@@ -3,6 +3,7 @@ realtime and observer factories build on the account the resolver hands
 them — the row's key and the row's host."""
 
 import asyncio
+import threading
 from typing import Any, Dict
 
 import pytest
@@ -132,6 +133,41 @@ def test_the_bedrock_factory_takes_the_rows_key_as_the_bearer_token(
         == "bedrock-svc"
     )
     assert seen == {"api_key": "bedrock-acct", "region": "ap-south-1"}
+
+
+def test_the_vertex_factory_builds_the_client_off_the_event_loop(
+    store: Store, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import app.ai.voice.agents.breeze_buddy.llm as llm_factory
+
+    seen: Dict[str, Any] = {}
+
+    def fake_build(config: Any) -> str:
+        # the real constructor fetches a Google token over the network
+        seen["thread"], seen["project_id"] = threading.get_ident(), config.project_id
+        return "vertex-svc"
+
+    monkeypatch.setattr(llm_factory, "build_vertex_llm", fake_build)
+    store.rows[ROW2] = cred(
+        id=ROW2,
+        provider="google_vertex",
+        value={"credentials_json": "{}", "project_id": "proj-acct"},
+    )
+    block = LLMConfiguration(
+        provider="google_vertex",
+        model="gemini-2.5-flash",
+        region="asia-south1",
+        temperature=0.2,
+        max_tokens=256,
+        credential_id=ROW2,
+    )
+    assert (
+        asyncio.run(llm_factory.get_llm_service(block, accounts=Accounts("r-1", "m-1")))
+        == "vertex-svc"
+    )
+    assert seen["project_id"] == "proj-acct"
+    # asyncio.run drives the loop on this thread: the build must run elsewhere
+    assert seen["thread"] != threading.get_ident()
 
 
 def test_the_realtime_factory_builds_on_the_rows_key_and_host(
